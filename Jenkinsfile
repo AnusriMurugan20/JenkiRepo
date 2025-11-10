@@ -1,30 +1,41 @@
 pipeline {
     agent any
-    tools { nodejs 'nodejs' }
+
     stages {
         stage('Checkout') {
-            steps { git branch: 'main', url: 'https://github.com/AnusriMurugan20/JenkiRepo.git' }
-        }
-        stage('Sanity / list files') {
-            steps { bat 'dir /S /B' }
-        }
-        stage('Install Dependencies') {
             steps {
-                dir('frontend') {
-                    bat 'if exist package.json (echo package.json FOUND) else (echo package.json MISSING & exit /b 1)'
-                    bat 'npm install'
-                }
+                git branch: 'main', url: 'https://github.com/AnusriMurugan20/JenkiRepo.git'
             }
         }
-        stage('Build') {
+
+        stage('Show workspace (debug)') {
             steps {
-                dir('frontend') { bat 'npm run build' }
+                bat 'echo === workspace listing === & dir /S /B'
             }
         }
-        stage('Test') {
+
+        stage('Install, Build & Test') {
             steps {
-                dir('frontend') { bat 'npm test -- --watchAll=false --passWithNoTests' }
+                // use PowerShell from a single bat step so it runs on Windows nodes
+                bat '''
+powershell -NoProfile -Command ^
+$p = Get-ChildItem -Recurse -Filter package.json -File -ErrorAction SilentlyContinue | Select-Object -First 1; ^
+if ($null -eq $p) { Write-Host "ERROR: package.json not found in workspace"; exit 1 } ^
+$dir = $p.DirectoryName; ^
+Write-Host "Found package.json in: $dir"; ^
+Set-Location $dir; ^
+Write-Host "Node version:"; node -v; Write-Host "Npm version:"; npm -v; ^
+Write-Host "Running npm install..."; npm install; ^
+Write-Host "Running npm run build..."; npm run build; ^
+Write-Host "Running tests..."; npm test -- --watchAll=false --passWithNoTests
+'''
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline finished.'
         }
     }
 }
