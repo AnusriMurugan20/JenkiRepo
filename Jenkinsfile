@@ -24,6 +24,6 @@ pipeline {
             steps {
                 bat 'npm test -- --watchAll=false --passWithNoTests'
             }
-        }
-    }
+        }
+    }
 }
